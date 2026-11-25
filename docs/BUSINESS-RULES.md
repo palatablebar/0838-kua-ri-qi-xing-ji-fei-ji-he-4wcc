@@ -19,3 +19,13 @@
 ## 批次
 
 同一来源重复执行得到同一批次数值。签发要求阻断项为零，并携带当前版本号；旧版本提交会被拒绝。证据只在签发后生成。
+
+## 营业日签发
+
+结算员不再只能整批签发，而是按营业日查询、签发：
+
+- 骑行按零点拆段后的 `day_fares[i]` 归属到 `start_at.date() + i` 这一营业日。
+- 已核清（`wallet_debit == fare`，或原因为 `FARE_MATCH` / `DAILY_CAP_APPLIED`）的**单日骑行**可随时签发，不被其它营业日或同日其它坏行连坐。
+- **跨日骑行是不可拆分的入账单位**：只有当它涉及的每一个营业日都不存在任何未核清扣款（`UNPAID` / `WALLET_MISMATCH` 等）时，各营业日段的车费才在同一事务里一起入账；门控未开时，其各日金额计入“暂挂/跨日暂挂”，签发该营业日不会只入其中一段。
+- 入账记录以 `(scope, trip_id, business_date)` 为主键。补齐扣款后重跑、重复提交或并发提交都通过 `INSERT ... ON CONFLICT DO NOTHING` + `BEGIN IMMEDIATE` 幂等去重，不重复计入已签车费。
+- 工作台与 `GET /api/settlements` 可查每个营业日的车费总额、已签金额（`signed_amount`）、暂挂金额（`pending_amount`）以及跨日暂挂（`held_amount`）。金额单位为整数分。

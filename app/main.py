@@ -20,7 +20,14 @@ def create_app(database=None):
 
     @app.get("/")
     def home():
-        return render_template("index.html", p=SPEC)
+        # 首屏直接服务端渲染 clean 样例的各日金额；JS 启动后会按所选样例/批次刷新
+        try:
+            from app.service import pipeline
+
+            daily = pipeline("clean").get("daily")
+        except Exception:  # pragma: no cover - 首屏富化失败不阻断工作台
+            daily = None
+        return render_template("index.html", p=SPEC, daily=daily)
 
     @app.get("/healthz")
     def health():

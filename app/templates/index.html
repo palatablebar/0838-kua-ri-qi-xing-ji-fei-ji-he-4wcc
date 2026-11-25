@@ -8,6 +8,43 @@
     {{ ui.metric("m-isolated", "隔离行") }}
     {{ ui.metric("m-rejected", "阻断项") }}
   </section>
+  <section class="panel" id="panel-daily" aria-label="营业日签发">
+    <div class="panel-head">
+      <h2>营业日签发</h2>
+      <span class="hint" id="daily-total-hint">各日已签 / 暂挂车费</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>营业日</th><th class="num">当日车费</th><th class="num">已签金额</th>
+            <th class="num">暂挂金额</th><th class="num">其中跨日暂挂</th><th>状态</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="daily-body">
+          {% if daily and daily.days %}
+            {% for day in daily.days %}
+              <tr>
+                <td>{{ day.business_date }}</td>
+                <td class="num" data-total="{{ day.total_amount }}">¥{{ '%.2f'|format(day.total_amount / 100) }}</td>
+                <td class="num check-ok" data-signed="{{ day.signed_amount }}">¥{{ '%.2f'|format(day.signed_amount / 100) }}</td>
+                <td class="num" data-pending="{{ day.pending_amount }}" style="color:var(--danger)">¥{{ '%.2f'|format(day.pending_amount / 100) }}</td>
+                <td class="num" data-held="{{ day.held_amount }}">¥{{ '%.2f'|format(day.held_amount / 100) }}</td>
+                <td>{{ day.status_label }}</td>
+                <td><button type="button" data-day-sign="{{ day.business_date }}">签发当日可签</button></td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="7" class="empty">执行批次后显示</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div class="review-actions" style="margin-top:10px">
+      <button id="daily-sign-all" type="button">签发全部可入账</button>
+      <span class="hint">跨日骑行需其涉及的所有营业日均无未核清扣款后，各日车费一起入账；重复提交不会重复计入。</span>
+    </div>
+  </section>
   <section class="board">
     <article class="panel" id="panel-table">
       <div class="panel-head"><h2>批次结果</h2><span class="hint" id="row-count">--</span></div>

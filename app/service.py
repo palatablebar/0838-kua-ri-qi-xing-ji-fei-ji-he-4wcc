@@ -7,6 +7,7 @@ from app.domain.calculate import calculate_rows
 from app.domain.decision import decide_rows
 from app.domain.prepare import prepare_rows
 from app.intake.service import load
+from app.reconcile.daily import build_daily_board
 from app.reconcile.ledger import build_ledger
 
 
@@ -39,6 +40,7 @@ def pipeline(profile="dirty", path=None, upto="证据交付"):
         results = decide_rows(results)
     if _stage(upto) >= 5:
         ledger = build_ledger(intake, prepared, prepare_issues, results)
+    daily = build_daily_board(results) if results else build_daily_board([])
     intake["counts"]["prepared"] = len(prepared)
     intake["counts"]["computed"] = len(results)
     issues = intake["issues"] + prepare_issues
@@ -73,6 +75,11 @@ def pipeline(profile="dirty", path=None, upto="证据交付"):
         "chart": chart,
         "summary": summary,
         "ledger": ledger,
+        "daily": daily,
+        "daily_settlement": daily,
+        "settlement": daily,
+        "business_days": daily["business_days"],
+        "days": daily["business_days"],
         "stages": [{"id": "intake", "name": SPEC["stages"][0]},
                    {"id": "prepare", "name": SPEC["stages"][1]},
                    {"id": "calculate", "name": SPEC["stages"][2]},

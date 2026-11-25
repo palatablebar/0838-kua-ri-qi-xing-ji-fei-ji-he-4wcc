@@ -99,6 +99,7 @@
       $('hold').disabled = state.approved;
       $('download').hidden = !state.approved;
       if (state.approved) $('download').href = '/api/runs/' + run.run_id + '/evidence';
+      loadDaily(run.run_id);
     } catch (error) { setNotice(error.message); }
     finally { $('run').disabled = false; }
   }
@@ -119,6 +120,68 @@
       if (state.approved) $('download').href = '/api/runs/' + run.run_id + '/evidence';
     } catch (error) { setNotice(error.message); }
   }
+  function yuan(value) {
+    var cents = Number(value === undefined || value === null ? 0 : value);
+    return '¥' + (cents / 100).toFixed(2);
+  }
+  function dailyContext() {
+    return state.run ? {run_id: state.run.run_id} : {profile: $('profile').value};
+  }
+  async function loadDaily(runId) {
+    var body = dailyContext();
+    var query = runId ? '/api/settlements?run_id=' + encodeURIComponent(runId)
+      : '/api/settlements?' + new URLSearchParams(body).toString();
+    try {
+      var data = await request(query);
+      renderDailyBoard(data);
+    } catch (error) {
+      var target = $('daily-body');
+      if (target) target.innerHTML = '<tr><td colspan="7" class="empty">' + esc(error.message) + '</td></tr>';
+    }
+  }
+  function renderDailyBoard(data) {
+    var body = $('daily-body');
+    if (!body || !data) return;
+    var days = data.days || data.business_days || [];
+    var totals = data.totals || {};
+    var hint = $('daily-total-hint');
+    if (hint) {
+      hint.textContent = '合计车费 ' + yuan(totals.total_amount) +
+        ' · 已签 ' + yuan(totals.signed_amount) +
+        ' · 暂挂 ' + yuan(totals.pending_amount);
+    }
+    if (!days.length) {
+      body.innerHTML = '<tr><td colspan="7" class="empty">暂无营业日数据</td></tr>';
+      return;
+    }
+    body.innerHTML = days.map(function (item) {
+      var day = item.business_date || item.date || item.day;
+      var blocked = (item.blocked_trips || []).length
+        ? '<br><small class="hint">等待跨日趟次：' + esc(item.blocked_trips.join(', ')) + '</small>' : '';
+      var action = item.can_sign
+        ? '<button type="button" data-day-sign="' + esc(day) + '">签发当日可签</button>'
+        : '<button type="button" disabled>暂无可签</button>';
+      return '<tr>' +
+        '<td>' + esc(day) + '</td>' +
+        '<td class="num">' + yuan(item.total_amount) + '</td>' +
+        '<td class="num check-ok">' + yuan(item.signed_amount) + '</td>' +
+        '<td class="num" style="color:var(--danger)">' + yuan(item.pending_amount) + '</td>' +
+        '<td class="num">' + yuan(item.held_amount) + '</td>' +
+        '<td>' + esc(item.status_label || item.status || '') + blocked + '</td>' +
+        '<td>' + action + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+  async function submitSign(payload) {
+    try {
+      setNotice('');
+      if (state.run && !payload.run_id) payload.run_id = state.run.run_id;
+      if (!payload.run_id && !payload.profile) payload.profile = $('profile').value;
+      var data = await request('/api/settlements/sign', {method: 'POST', body: JSON.stringify(payload)});
+      renderDailyBoard(data);
+      setNotice('签发完成：新入账 ' + (data.inserted || 0) + ' 项，重复/已存在 ' + (data.duplicated || 0) + ' 项；已签车费不重复计入。');
+    } catch (error) { setNotice(error.message); }
+  }
   async function boot() {
     try {
       var catalog = await request('/api/catalog');
@@ -128,15 +191,22 @@
       stageButtons(catalog.stages.slice(0, 5));
       document.querySelector('.rail-note').textContent = catalog.code + ' · ' + catalog.stages[6].name;
       await loadStage('intake');
+      loadDaily();
     } catch (error) { setNotice(error.message); }
     $('run').addEventListener('click', runBatch);
     $('sign').addEventListener('click', function () { review('APPROVED'); });
     $('hold').addEventListener('click', function () { review('HELD'); });
+    $('daily-sign-all').addEventListener('click', function () { submitSign({all: true}); });
+    $('daily-body').addEventListener('click', function (event) {
+      var button = event.target.closest ? event.target.closest('[data-day-sign]') : null;
+      if (button) submitSign({business_date: button.getAttribute('data-day-sign')});
+    });
     $('profile').addEventListener('change', function () {
       state.run = null; state.approved = false;
       $('sign').disabled = true; $('hold').disabled = true; $('download').hidden = true;
       $('run-status').textContent = '未执行批次'; $('revision').textContent = 'rev 0';
       loadStage('intake');
+      loadDaily();
     });
   }
   document.addEventListener('DOMContentLoaded', boot);

@@ -17,6 +17,7 @@ MESSAGES = {
     "STALE_REVIEW": "批次已被更新，请刷新后复核",
     "GATE_BLOCKED": "存在阻断项，不能签发",
     "NOT_APPROVED": "批次尚未签发",
+    "CROSS_DAY_LOCKED": "跨日骑行涉及的营业日仍有未核清扣款，各日车费需一起入账",
     "BAD_REQUEST": "请求内容不完整",
 }
 

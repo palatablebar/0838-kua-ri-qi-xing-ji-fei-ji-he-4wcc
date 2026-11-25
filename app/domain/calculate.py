@@ -11,6 +11,7 @@ def calculate_rows(items):
         cursor = start
         pause_seconds = item["paused_minutes"] * 60
         day_fares = []
+        day_dates = []
         while cursor < end:
             midnight = cursor.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
             boundary = min(midnight, end)
@@ -19,10 +20,12 @@ def calculate_rows(items):
             pause_seconds -= consumed
             minutes = (seconds - consumed + 59) // 60
             day_fares.append(min(100 + max(0, minutes - 15) * 10, 400) if minutes else 0)
+            day_dates.append(cursor.date().isoformat())
             cursor = boundary
         fare = sum(day_fares)
         item["fare"] = fare
         item["split_days"] = len(day_fares)
+        item["day_dates"] = day_dates
         item["metric"] = D(str(fare), "CALC")
         item["limit"] = D(str(item["wallet_debit"]), "LIMIT")
         item["day_fares"] = day_fares
